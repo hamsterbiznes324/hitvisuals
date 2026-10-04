@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "hitvisuals",
+  "version": "${version}",
+  "name": "Hit Visuals",
+  "description": "Меню на Right Shift: эффекты при ударе и смена неба.",
+  "authors": ["you"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.hitvisuals.HitVisualsClient"]
+  },
+  "mixins": [
+    { "config": "hitvisuals.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

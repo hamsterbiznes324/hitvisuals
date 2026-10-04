@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.example.hitvisuals.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientWorldMixin",
+    "BackgroundRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
