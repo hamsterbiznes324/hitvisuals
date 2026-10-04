@@ -3,10 +3,11 @@
   "id": "hitvisuals",
   "version": "${version}",
   "name": "Hit Visuals",
-  "description": "Меню на Right Shift: эффекты при ударе и смена неба.",
+  "description": "Своё меню, главный экран, частицы-череп/звезда/луна, небо, трейл, fullbright.",
   "authors": ["you"],
   "environment": "client",
   "entrypoints": {
+    "main": ["com.example.hitvisuals.HitVisualsMod"],
     "client": ["com.example.hitvisuals.HitVisualsClient"]
   },
   "mixins": [
