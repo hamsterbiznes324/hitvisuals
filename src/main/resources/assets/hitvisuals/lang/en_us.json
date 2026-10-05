@@ -1,4 +1,6 @@
 {
-  "key.hitvisuals.menu": "Open Hit Visuals menu",
-  "category.hitvisuals": "Hit Visuals"
+  "key.hitvisuals.menu": "Open HamsterVisuals menu",
+  "key.hitvisuals.mark": "Place / remove mark",
+  "key.hitvisuals.friend": "Add / remove friend (look at player)",
+  "category.hitvisuals": "HamsterVisuals"
 }

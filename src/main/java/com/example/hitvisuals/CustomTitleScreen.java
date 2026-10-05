@@ -8,18 +8,18 @@ import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
-/** Своё главное меню вместо стандартного. */
+/** Своё главное меню HamsterVisuals вместо стандартного. */
 public class CustomTitleScreen extends Screen {
+    private static final String TITLE = "HAMSTERVISUALS";
     private static final String[] LABELS = {
-            "Одиночная игра", "Сетевая игра", "Настройки", "Меню Hit Visuals", "Выйти из игры"
+            "Одиночная игра", "Сетевая игра", "Настройки", "Меню HamsterVisuals", "Выйти из игры"
     };
     private static final int BW = 230;
     private static final int BH = 26;
     private static final int BG = 7;
-    private static final int TITLE_BLOCK = 78;
 
     public CustomTitleScreen() {
-        super(Text.literal("Hit Visuals"));
+        super(Text.literal("HamsterVisuals"));
     }
 
     @Override
@@ -27,13 +27,27 @@ public class CustomTitleScreen extends Screen {
         return false;
     }
 
+    private int logoPx() {
+        return this.height >= 340 ? 4 : (this.height >= 270 ? 3 : 2);
+    }
+
+    private float titleScale() {
+        float tw = this.textRenderer.getWidth(TITLE);
+        return Math.max(1.5f, Math.min(4f, (this.width - 40f) / tw));
+    }
+
+    /** Высота блока с логотипом, заголовком и подзаголовком. */
+    private int blockHeight() {
+        return 16 * logoPx() + 6 + (int) (8 * titleScale()) + 34;
+    }
+
     private int startY() {
-        int total = TITLE_BLOCK + LABELS.length * (BH + BG);
+        int total = blockHeight() + LABELS.length * (BH + BG);
         return Math.max(8, (this.height - total) / 2);
     }
 
     private int buttonY(int i) {
-        return startY() + TITLE_BLOCK + i * (BH + BG);
+        return startY() + blockHeight() + i * (BH + BG);
     }
 
     private static long hash(int i) {
@@ -48,11 +62,10 @@ public class CustomTitleScreen extends Screen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int acc = Ui.accent();
 
-        // фон
         ctx.fillGradient(0, 0, this.width, this.height, 0xFF06070B,
                 Ui.argb(0xFF, Ui.blend(0x06070B, acc, 0.22f)));
 
-        // летающие значки: звёзды, луны, черепа
+        // летающие звёзды, луны и черепа
         long t = System.currentTimeMillis();
         for (int i = 0; i < 26; i++) {
             long h = hash(i);
@@ -69,14 +82,19 @@ public class CustomTitleScreen extends Screen {
             Sprites.draw(ctx, type, x, y, size, Ui.argb(alpha, i % 4 == 0 ? 0xFFFFFF : acc));
         }
 
-        // заголовок
-        String title = "HIT VISUALS";
-        float sc = 5f;
-        float tw = this.textRenderer.getWidth(title) * sc;
+        // логотип-хомяк и название
+        int lp = logoPx();
+        int top = startY();
+        int bob = (int) (Math.sin(t * 0.003) * 2);
+        Sprites.drawHamster(ctx, this.width / 2 - 8 * lp, top + bob, lp);
+
+        float sc = titleScale();
+        float tw = this.textRenderer.getWidth(TITLE) * sc;
         float tx = this.width / 2f - tw / 2f;
-        float ty = startY();
-        Ui.scaled(ctx, this.textRenderer, title, tx + 3, ty + 3, Ui.argb(0xFF, acc), sc, false);
-        Ui.scaled(ctx, this.textRenderer, title, tx, ty, 0xFFFFFFFF, sc, false);
+        float ty = top + 16 * lp + 6;
+        Ui.scaled(ctx, this.textRenderer, TITLE, tx + 2, ty + 2, Ui.argb(0xFF, acc), sc, false);
+        Ui.scaled(ctx, this.textRenderer, TITLE, tx, ty, 0xFFFFFFFF, sc, false);
+
         String sub = "клиент для Minecraft 1.21.4";
         float sw = this.textRenderer.getWidth(sub);
         Ui.scaled(ctx, this.textRenderer, sub, this.width / 2f - sw / 2f, ty + 8 * sc + 6, 0xFF8A90A0, 1f, false);
@@ -98,7 +116,7 @@ public class CustomTitleScreen extends Screen {
             ctx.drawText(this.textRenderer, LABELS[i], bx + (BW - lw) / 2, by + (BH - 8) / 2 + 1, 0xFFFFFFFF, true);
         }
 
-        String hint = "Right Shift - меню Hit Visuals";
+        String hint = "Right Shift - меню HamsterVisuals";
         int hw = this.textRenderer.getWidth(hint);
         ctx.drawText(this.textRenderer, hint, this.width / 2 - hw / 2, this.height - 14, 0xFF6C7280, false);
     }

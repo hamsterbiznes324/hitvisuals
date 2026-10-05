@@ -1,8 +1,11 @@
 package com.example.hitvisuals;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
@@ -12,19 +15,20 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.ParticleEffect;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
 
 public class HitVisualsClient implements ClientModInitializer {
-    private static final long FLASH_MS = 350L;
-    private static long lastHit = 0L;
     private static boolean fullbrightApplied = false;
-    private static KeyBinding openMenu;
+
+    public static KeyBinding openMenu;
+    public static KeyBinding markKey;
+    public static KeyBinding friendKey;
 
     @Override
     public void onInitializeClient() {
@@ -32,34 +36,41 @@ public class HitVisualsClient implements ClientModInitializer {
         ModParticles.registerFactories();
 
         openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.hitvisuals.menu",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "category.hitvisuals"
-        ));
+                "key.hitvisuals.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.hitvisuals"));
+        markKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.hitvisuals.mark", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.hitvisuals"));
+        friendKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.hitvisuals.friend", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.hitvisuals"));
 
         ClientTickEvents.END_CLIENT_TICK.register(HitVisualsClient::tick);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MusicTracker.shutdown());
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (VisualsConfig.I.protectFriends && entity instanceof PlayerEntity pe
+                    && Social.isFriend(pe.getName().getString())) {
+                return ActionResult.FAIL;
+            }
             if (world.isClient && VisualsConfig.I.hitEffects) {
                 onHit(world, entity);
             }
             return ActionResult.PASS;
         });
 
-        HudRenderCallback.EVENT.register((context, tickCounter) -> {
-            if (!VisualsConfig.I.flash) return;
-            long elapsed = System.currentTimeMillis() - lastHit;
-            if (elapsed < 0 || elapsed > FLASH_MS) return;
-            float t = 1f - (elapsed / (float) FLASH_MS);
-            int alpha = (int) (t * 90);
-            if (alpha <= 0) return;
-            context.fill(0, 0, context.getScaledWindowWidth(), context.getScaledWindowHeight(),
-                    Ui.argb(alpha, Ui.accent()));
+        HudRenderCallback.EVENT.register((context, tickCounter) -> HudRenderer.render(context));
+
+        // Невидимая метка в чате, чтобы другие игроки с HamsterVisuals видели, что ты тоже с модом
+        ClientSendMessageEvents.MODIFY_CHAT.register(msg -> VisualsConfig.I.shareTag ? msg + Social.TAG : msg);
+        ClientReceiveMessageEvents.CHAT.register((message, signed, sender, params, receptionTimestamp) -> {
+            if (message.getString().contains(Social.TAG)) {
+                Social.noteModUserFromText(params.name().getString());
+            }
         });
     }
 
     private static void tick(MinecraftClient client) {
+        VisualsConfig c = VisualsConfig.I;
+        MusicTracker.update(c.musicHud);
+
         while (openMenu.wasPressed()) {
             if (client.currentScreen == null) {
                 client.setScreen(new VisualsScreen(null));
@@ -71,7 +82,17 @@ public class HitVisualsClient implements ClientModInitializer {
             fullbrightApplied = false;
             return;
         }
-        VisualsConfig c = VisualsConfig.I;
+
+        while (markKey.wasPressed()) {
+            if (client.currentScreen == null) {
+                Marks.toggleAtCrosshair(client);
+            }
+        }
+        while (friendKey.wasPressed()) {
+            if (client.currentScreen == null) {
+                toggleFriendOnTarget(client, p);
+            }
+        }
 
         // Fullbright: клиентский эффект ночного зрения
         if (c.fullbright) {
@@ -103,10 +124,21 @@ public class HitVisualsClient implements ClientModInitializer {
         }
     }
 
+    private static void toggleFriendOnTarget(MinecraftClient client, ClientPlayerEntity p) {
+        Entity e = client.targetedEntity;
+        if (e instanceof PlayerEntity pe) {
+            String n = pe.getName().getString();
+            boolean now = Social.toggleFriend(n);
+            p.sendMessage(Text.literal(now ? "Друг добавлен: " + n : "Друг удалён: " + n), true);
+        } else {
+            p.sendMessage(Text.literal("Наведись на игрока"), true);
+        }
+    }
+
     private static void onHit(World world, Entity target) {
         MinecraftClient mc = MinecraftClient.getInstance();
         VisualsConfig c = VisualsConfig.I;
-        lastHit = System.currentTimeMillis();
+        HudRenderer.markHit();
 
         Box box = target.getBoundingBox();
         for (int i = 0; i < c.particleCount; i++) {
@@ -121,8 +153,7 @@ public class HitVisualsClient implements ClientModInitializer {
         }
 
         if (c.sound && mc.player != null) {
-            world.playSound(mc.player, target.getX(), target.getY(), target.getZ(),
-                    SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.PLAYERS, 0.8f, 1.4f);
+            HitSounds.play(world, mc.player, target);
         }
     }
 }

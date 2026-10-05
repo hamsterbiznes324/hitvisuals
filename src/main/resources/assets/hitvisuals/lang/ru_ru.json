@@ -1,4 +1,6 @@
 {
-  "key.hitvisuals.menu": "Открыть меню Hit Visuals",
-  "category.hitvisuals": "Hit Visuals"
+  "key.hitvisuals.menu": "Открыть меню HamsterVisuals",
+  "key.hitvisuals.mark": "Поставить / убрать метку",
+  "key.hitvisuals.friend": "Добавить / убрать друга (смотри на игрока)",
+  "category.hitvisuals": "HamsterVisuals"
 }

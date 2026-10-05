@@ -2,9 +2,10 @@
   "schemaVersion": 1,
   "id": "hitvisuals",
   "version": "${version}",
-  "name": "Hit Visuals",
-  "description": "Своё меню, главный экран, частицы-череп/звезда/луна, небо, трейл, fullbright.",
-  "authors": ["you"],
+  "name": "HamsterVisuals",
+  "description": "Меню, главный экран, свои частицы, небо, трейл, плеер с текстами песен, друзья и метки.",
+  "authors": ["Hamster_Biznes"],
+  "icon": "assets/hitvisuals/icon.png",
   "environment": "client",
   "entrypoints": {
     "main": ["com.example.hitvisuals.HitVisualsMod"],

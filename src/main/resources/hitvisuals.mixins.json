@@ -6,7 +6,8 @@
     "ClientWorldMixin",
     "BackgroundRendererMixin",
     "MinecraftClientMixin",
-    "HeldItemRendererMixin"
+    "HeldItemRendererMixin",
+    "EntityMixin"
   ],
   "injectors": {
     "defaultRequire": 0
