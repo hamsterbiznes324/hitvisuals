@@ -6,5 +6,6 @@ public class HitVisualsMod implements ModInitializer {
     @Override
     public void onInitialize() {
         ModParticles.registerTypes();
+        SkinPacks.register();
     }
 }

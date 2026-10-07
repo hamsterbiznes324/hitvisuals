@@ -7,12 +7,15 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
@@ -26,9 +29,16 @@ import org.lwjgl.glfw.GLFW;
 public class HitVisualsClient implements ClientModInitializer {
     private static boolean fullbrightApplied = false;
 
+    private static LivingEntity lastHitEntity = null;
+    private static long lastHitEntityTime = 0L;
+    private static int killStreak = 0;
+    private static long lastKillTime = 0L;
+
     public static KeyBinding openMenu;
     public static KeyBinding markKey;
     public static KeyBinding friendKey;
+    public static KeyBinding zoomKey;
+    public static KeyBinding hudEditKey;
 
     @Override
     public void onInitializeClient() {
@@ -41,9 +51,19 @@ public class HitVisualsClient implements ClientModInitializer {
                 "key.hitvisuals.mark", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.hitvisuals"));
         friendKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.hitvisuals.friend", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.hitvisuals"));
+        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.hitvisuals.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.hitvisuals"));
+        hudEditKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.hitvisuals.hudedit", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_CONTROL, "category.hitvisuals"));
 
         ClientTickEvents.END_CLIENT_TICK.register(HitVisualsClient::tick);
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MusicTracker.shutdown());
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            Zoom.restore();
+            MusicTracker.shutdown();
+        });
+
+        WorldRenderEvents.START.register(ctx -> Zoom.update(MinecraftClient.getInstance()));
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(BlockHighlight::render);
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (VisualsConfig.I.protectFriends && entity instanceof PlayerEntity pe
@@ -71,15 +91,26 @@ public class HitVisualsClient implements ClientModInitializer {
         VisualsConfig c = VisualsConfig.I;
         MusicTracker.update(c.musicHud);
 
+        // Своё главное меню (запасной способ, если подмена экрана не сработала)
+        if (c.customTitle && client.currentScreen instanceof TitleScreen) {
+            client.setScreen(new CustomTitleScreen());
+        }
+
         while (openMenu.wasPressed()) {
             if (client.currentScreen == null) {
                 client.setScreen(new VisualsScreen(null));
+            }
+        }
+        while (hudEditKey.wasPressed()) {
+            if (client.currentScreen == null) {
+                client.setScreen(new HudEditScreen(null));
             }
         }
 
         ClientPlayerEntity p = client.player;
         if (p == null || client.world == null) {
             fullbrightApplied = false;
+            lastHitEntity = null;
             return;
         }
 
@@ -91,6 +122,17 @@ public class HitVisualsClient implements ClientModInitializer {
         while (friendKey.wasPressed()) {
             if (client.currentScreen == null) {
                 toggleFriendOnTarget(client, p);
+            }
+        }
+
+        // Убийство: цель, по которой недавно били, умерла
+        if (lastHitEntity != null) {
+            long now = System.currentTimeMillis();
+            if (now - lastHitEntityTime > 4000) {
+                lastHitEntity = null;
+            } else if (!lastHitEntity.isAlive()) {
+                onKill(client, lastHitEntity);
+                lastHitEntity = null;
             }
         }
 
@@ -140,6 +182,11 @@ public class HitVisualsClient implements ClientModInitializer {
         VisualsConfig c = VisualsConfig.I;
         HudRenderer.markHit();
 
+        if (target instanceof LivingEntity le) {
+            lastHitEntity = le;
+            lastHitEntityTime = System.currentTimeMillis();
+        }
+
         Box box = target.getBoundingBox();
         for (int i = 0; i < c.particleCount; i++) {
             ParticleEffect effect = ModParticles.pick(c.hitParticle);
@@ -154,6 +201,36 @@ public class HitVisualsClient implements ClientModInitializer {
 
         if (c.sound && mc.player != null) {
             HitSounds.play(world, mc.player, target);
+        }
+    }
+
+    private static void onKill(MinecraftClient client, LivingEntity e) {
+        VisualsConfig c = VisualsConfig.I;
+        if (!c.killEffect || client.world == null) return;
+
+        long now = System.currentTimeMillis();
+        killStreak = (now - lastKillTime < 8000) ? killStreak + 1 : 1;
+        lastKillTime = now;
+
+        double cx = e.getX();
+        double cy = e.getY() + e.getHeight() / 2.0;
+        double cz = e.getZ();
+
+        // всплеск из черепов, звёзд и лун
+        for (int i = 0; i < 36; i++) {
+            double ang = i * (Math.PI * 2 / 12.0);
+            double up = 0.05 + (i / 12) * 0.08;
+            double sp = 0.12 + (i / 12) * 0.05;
+            ParticleEffect eff = ModParticles.pick(i % 3 == 0 ? 2 : (i % 3 == 1 ? 0 : 1));
+            client.world.addParticle(eff, cx, cy, cz, Math.cos(ang) * sp, up, Math.sin(ang) * sp);
+        }
+
+        String text = killStreak > 1 ? "УБИЙСТВО x" + killStreak : "УБИЙСТВО";
+        FloatTexts.spawn(text, cx, cy + 1.0, cz, 1800, 0xFF4D6D, 0.4, true);
+        HudRenderer.markHit();
+
+        if (c.sound) {
+            CustomSounds.play(CustomSounds.KILL, (float) c.soundVolume, 1.0f);
         }
     }
 }

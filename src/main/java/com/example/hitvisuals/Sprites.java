@@ -126,5 +126,18 @@ public final class Sprites {
         }
     }
 
+    /** Хомяк, который умеет моргать (blink = true закрывает глаза). */
+    public static void drawHamsterBlink(DrawContext ctx, int x, int y, int px, boolean blink) {
+        for (int r = 0; r < HAMSTER.length; r++) {
+            String row = HAMSTER[r];
+            for (int c = 0; c < row.length(); c++) {
+                char ch = row.charAt(c);
+                if (ch == '.') continue;
+                if (blink && (r == 6 || r == 7) && ch == 'k') ch = 'f';
+                ctx.fill(x + c * px, y + r * px, x + (c + 1) * px, y + (r + 1) * px, hamsterColor(ch));
+            }
+        }
+    }
+
     private Sprites() {}
 }

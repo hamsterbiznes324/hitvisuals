@@ -1,5 +1,5 @@
 {
-  "required": true,
+  "required": false,
   "package": "com.example.hitvisuals.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
@@ -7,7 +7,8 @@
     "BackgroundRendererMixin",
     "MinecraftClientMixin",
     "HeldItemRendererMixin",
-    "EntityMixin"
+    "EntityMixin",
+    "InGameHudMixin"
   ],
   "injectors": {
     "defaultRequire": 0

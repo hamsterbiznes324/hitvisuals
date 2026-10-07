@@ -87,6 +87,7 @@ public final class MusicTracker {
     private static volatile Lyrics lyrics = null;
     private static volatile int lyricsState = LY_NONE;
     private static volatile String lyricsKey = "";
+    private static double lastReported = -1;
 
     public static boolean present() {
         return present;
@@ -219,10 +220,32 @@ public final class MusicTracker {
                 present = false;
                 return;
             }
-            pos = num(o, "pos");
+            double reported = num(o, "pos");
             dur = num(o, "dur");
-            stampNanos = System.nanoTime();
-            playing = o.has("playing") && o.get("playing").getAsBoolean();
+            boolean nowPlaying = o.has("playing") && o.get("playing").getAsBoolean();
+            long now = System.nanoTime();
+            String key0 = t + "|" + a;
+            if (!key0.equals(lyricsKey)) {
+                // новый трек: считаем с начала
+                pos = reported;
+                stampNanos = now;
+                lastReported = reported;
+            } else if (Math.abs(reported - lastReported) > 0.001) {
+                // плеер сообщил новую позицию, подстраиваемся под неё
+                pos = reported;
+                stampNanos = now;
+                lastReported = reported;
+            } else if (playing != nowPlaying) {
+                // пауза или продолжение: запоминаем, где остановились
+                pos = position();
+                stampNanos = now;
+            }
+            if (dur > 0 && nowPlaying && position() > dur + 2.0) {
+                // трек пошёл по кругу
+                pos = 0;
+                stampNanos = now;
+            }
+            playing = nowPlaying;
             title = t;
             artist = a;
             present = true;

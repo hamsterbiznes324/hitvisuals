@@ -20,10 +20,15 @@ import java.util.function.IntSupplier;
 
 /** Меню HamsterVisuals: вкладки слева, настройки справа, поиск сверху. Открывается на Right Shift. */
 public class VisualsScreen extends Screen {
-    private static final String[] TABS = {"Удары", "Мир", "Игрок", "Музыка", "Друзья", "Метки", "Тема"};
-    private static final String[] TAB_TITLES = {
-            "Удары", "Мир", "Игрок", "Музыка и слова", "Друзья", "Метки", "Тема и меню"
+    private static final String[] TABS = {
+            "Удары", "Мир", "Игрок", "Руки и меч", "Прицел", "Музыка", "Друзья", "Метки", "Панели", "Тема"
     };
+    private static final String[] TAB_TITLES = {
+            "Удары", "Мир", "Игрок", "Руки и оружие", "Прицел", "Музыка и слова", "Друзья", "Метки",
+            "Маленькие панели", "Тема и меню"
+    };
+    private static final String[] BLOCK_COLORS = {"Цвет темы", "Радужная", "Белая"};
+    private static final String[] LYRICS_STYLES = {"Буквы в мире", "Строки внизу"};
     private static final String[] COLOR_MODES = {"Цвет темы", "Радужные", "Белые"};
     private static final String[] SWING_STYLES = {"Обычный", "Плавный", "Резкий"};
     private static final int[] SWATCHES = {
@@ -33,7 +38,7 @@ public class VisualsScreen extends Screen {
     private static final int SIDE = 118;
     private static final int ROW_H = 34;
     private static final int GAP = 4;
-    private static final int TAB_H = 22;
+    private static final int TAB_H = 20;
 
     private final Screen parent;
     private final List<List<Row>> pages = new ArrayList<>();
@@ -173,7 +178,7 @@ public class VisualsScreen extends Screen {
                         COLOR_MODES, () -> c.particleColorMode, v -> c.particleColorMode = v),
                 Row.toggle("Звук удара", "Включает звук при попадании",
                         () -> c.sound, v -> c.sound = v),
-                Row.choice("Какой звук", "Клик по строке переключает и проигрывает звук",
+                Row.choice("Какой звук", "Звёздочка - свои звуки мода. Клик проигрывает звук",
                         HitSounds.NAMES, () -> c.hitSound, v -> {
                             c.hitSound = v;
                             HitSounds.preview();
@@ -183,7 +188,9 @@ public class VisualsScreen extends Screen {
                 Row.slider("Высота звука", "Выше число, тоньше звук",
                         0.5, 2.0, 2, () -> c.soundPitch, v -> c.soundPitch = v),
                 Row.toggle("Вспышка экрана", "Короткая вспышка цветом темы при ударе",
-                        () -> c.flash, v -> c.flash = v)
+                        () -> c.flash, v -> c.flash = v),
+                Row.toggle("Эффект убийства", "Всплеск черепов, надпись и звук, когда добиваешь цель",
+                        () -> c.killEffect, v -> c.killEffect = v)
         ));
 
         // 1 - Мир
@@ -192,6 +199,12 @@ public class VisualsScreen extends Screen {
                         SkyPresets.NAMES, () -> c.sky, v -> c.sky = v),
                 Row.hue("Свой цвет неба", "Работает, если выбрано «Свой цвет»",
                         () -> c.skyColor, v -> c.skyColor = v),
+                Row.toggle("Подсветка блока", "Цветная рамка на блоке, на который смотришь",
+                        () -> c.blockHighlight, v -> c.blockHighlight = v),
+                Row.choice("Цвет подсветки", "Цвет рамки и заливки блока",
+                        BLOCK_COLORS, () -> c.blockColorMode, v -> c.blockColorMode = v),
+                Row.slider("Заливка блока", "Насколько заметно закрашен блок",
+                        0.0, 0.6, 2, () -> c.blockFill, v -> c.blockFill = v),
                 Row.toggle("Fullbright", "Полная яркость, тёмных мест нет",
                         () -> c.fullbright, v -> c.fullbright = v),
                 Row.toggle("Скрыть огонь", "Не показывать огонь на экране, когда горишь",
@@ -200,31 +213,99 @@ public class VisualsScreen extends Screen {
 
         // 2 - Игрок
         pages.add(List.of(
-                Row.toggle("Плашка цели", "Показывает ник и здоровье, когда наводишься на моба или игрока",
+                Row.toggle("Плашка цели", "Ник и здоровье, когда наводишься на моба или игрока",
                         () -> c.targetHud, v -> c.targetHud = v),
                 Row.toggle("Трейл", "След из частиц за игроком при движении",
                         () -> c.trail, v -> c.trail = v),
                 Row.choice("Частицы трейла", "Из чего состоит след",
                         ModParticles.NAMES, () -> c.trailParticle, v -> c.trailParticle = v),
-                Row.toggle("Маленькие руки", "Уменьшает руку и предмет от первого лица",
-                        () -> c.smallHands, v -> c.smallHands = v),
-                Row.slider("Размер рук", "Чем меньше число, тем меньше рука",
-                        0.3, 1.0, 2, () -> c.handScale, v -> c.handScale = v),
-                Row.choice("Удар мечом", "Стиль взмаха от первого лица",
-                        SWING_STYLES, () -> c.swingStyle, v -> c.swingStyle = v)
+                Row.toggle("Зум", "Держи клавишу C, чтобы приблизить картинку",
+                        () -> c.zoomEnabled, v -> c.zoomEnabled = v),
+                Row.slider("Сила зума", "Угол обзора при зуме, меньше число - ближе",
+                        5, 60, 0, () -> c.zoomFov, v -> c.zoomFov = (int) Math.round(v)),
+                Row.toggle("Плавный зум", "Приближение и возврат идут плавно",
+                        () -> c.zoomSmooth, v -> c.zoomSmooth = v),
+                Row.toggle("Медленнее мышь при зуме", "Чувствительность падает вместе с углом обзора",
+                        () -> c.zoomSens, v -> c.zoomSens = v)
         ));
 
-        // 3 - Музыка
+        // 3 - Руки и меч
+        pages.add(List.of(
+                Row.toggle("Своя рука", "Включает все настройки руки ниже",
+                        () -> c.smallHands, v -> c.smallHands = v),
+                Row.slider("Размер руки", "Чем меньше число, тем меньше рука",
+                        0.3, 1.5, 2, () -> c.handScale, v -> c.handScale = v),
+                Row.slider("Сдвиг вбок", "Влево или вправо",
+                        -0.6, 0.6, 2, () -> c.handX, v -> c.handX = v),
+                Row.slider("Сдвиг вверх", "Выше или ниже",
+                        -0.6, 0.6, 2, () -> c.handY, v -> c.handY = v),
+                Row.slider("Сдвиг вперёд", "Ближе или дальше от глаз",
+                        -0.8, 0.8, 2, () -> c.handZ, v -> c.handZ = v),
+                Row.slider("Поворот X", "Наклон вперёд и назад",
+                        -90, 90, 0, () -> c.handRotX, v -> c.handRotX = v),
+                Row.slider("Поворот Y", "Поворот вокруг вертикали",
+                        -90, 90, 0, () -> c.handRotY, v -> c.handRotY = v),
+                Row.slider("Поворот Z", "Крен руки",
+                        -90, 90, 0, () -> c.handRotZ, v -> c.handRotZ = v),
+                Row.choice("Удар мечом", "Стиль взмаха от первого лица",
+                        SWING_STYLES, () -> c.swingStyle, v -> c.swingStyle = v),
+                Row.choice("Скин меча", "Меняет вид всех мечей. Игра ненадолго перезагрузит текстуры",
+                        SkinPacks.NAMES, () -> c.swordSkin, v -> {
+                            c.swordSkin = v;
+                            VisualsConfig.save();
+                            SkinPacks.apply();
+                        }),
+                Row.choice("Скин булавы", "Меняет вид булавы",
+                        SkinPacks.NAMES, () -> c.maceSkin, v -> {
+                            c.maceSkin = v;
+                            VisualsConfig.save();
+                            SkinPacks.apply();
+                        })
+        ));
+
+        // 4 - Прицел
+        pages.add(List.of(
+                Row.toggle("Свой прицел", "Заменяет стандартный прицел",
+                        () -> c.customCrosshair, v -> c.customCrosshair = v),
+                Row.choice("Вид прицела", "Форма прицела",
+                        CrosshairRenderer.STYLES, () -> c.crossStyle, v -> c.crossStyle = v),
+                Row.slider("Размер", "Длина линий или радиус",
+                        1, 20, 0, () -> c.crossSize, v -> c.crossSize = (int) Math.round(v)),
+                Row.slider("Толщина", "Толщина линий",
+                        1, 6, 0, () -> c.crossThickness, v -> c.crossThickness = (int) Math.round(v)),
+                Row.slider("Просвет", "Расстояние от центра до линий",
+                        0, 14, 0, () -> c.crossGap, v -> c.crossGap = (int) Math.round(v)),
+                Row.toggle("Чёрная обводка", "Обводка помогает видеть прицел на любом фоне",
+                        () -> c.crossOutline, v -> c.crossOutline = v),
+                Row.choice("Цвет прицела", "Откуда берётся цвет",
+                        CrosshairRenderer.COLOR_MODES, () -> c.crossColorMode, v -> c.crossColorMode = v),
+                Row.hue("Свой цвет прицела", "Работает, если выбрано «Свой цвет»",
+                        () -> c.crossColor, v -> c.crossColor = v),
+                Row.toggle("Расширяется в движении", "Прицел раскрывается при беге и ударах",
+                        () -> c.crossDynamic, v -> c.crossDynamic = v),
+                Row.toggle("Хит-маркер", "Крестик вокруг прицела при попадании",
+                        () -> c.hitMarker, v -> c.hitMarker = v),
+                Row.toggle("Скрыть стандартный прицел", "Убирает обычный прицел, когда включён свой",
+                        () -> c.hideVanillaCross, v -> c.hideVanillaCross = v)
+        ));
+
+        // 5 - Музыка
         pages.add(List.of(
                 Row.toggle("Плеер в игре", "Показывает трек, который играет на компьютере",
                         () -> c.musicHud, v -> c.musicHud = v),
                 Row.toggle("Слова песни", "Строки текста по ходу песни (нужен интернет)",
                         () -> c.musicLyrics, v -> c.musicLyrics = v),
+                Row.choice("Как показывать слова", "Буквы в мире перед тобой или строки внизу экрана",
+                        LYRICS_STYLES, () -> c.lyricsStyle, v -> c.lyricsStyle = v),
+                Row.slider("Размер букв", "Размер слов, которые висят в мире",
+                        0.4, 2.0, 2, () -> c.lyricsSize, v -> c.lyricsSize = v),
+                Row.slider("Сдвиг слов, сек", "Если слова спешат или опаздывают, подстрой тут",
+                        -5.0, 5.0, 1, () -> c.lyricsOffset, v -> c.lyricsOffset = v),
                 Row.label("Как это работает",
                         "Берёт трек из Spotify, браузера и других плееров. Только Windows.")
         ));
 
-        // 4 - Друзья (дальше добавляются живые строки)
+        // 6 - Друзья (дальше добавляются живые строки)
         pages.add(List.of(
                 Row.toggle("Не бить друзей", "Удар по другу не пройдёт",
                         () -> c.protectFriends, v -> c.protectFriends = v),
@@ -233,7 +314,7 @@ public class VisualsScreen extends Screen {
                 Row.input("Добавить друга", "Впиши ник и нажми Enter")
         ));
 
-        // 5 - Метки
+        // 7 - Метки
         pages.add(List.of(
                 Row.toggle("Показывать метки", "Метки видны на экране даже сквозь стены",
                         () -> c.showMarks, v -> c.showMarks = v),
@@ -243,7 +324,23 @@ public class VisualsScreen extends Screen {
                         () -> Marks.clearCurrent(MinecraftClient.getInstance()))
         ));
 
-        // 6 - Тема
+        // 8 - Панели
+        pages.add(List.of(
+                Row.button("Двигать панели", "Открывает экран, где панели можно перетащить мышью",
+                        () -> MinecraftClient.getInstance().setScreen(new HudEditScreen(this))),
+                Row.button("Сбросить положение", "Вернуть панели на свои места",
+                        HudLayout::reset),
+                Row.slider("Размер плеера", "Размер карточки с треком",
+                        0.4, 1.6, 2, () -> c.musicScale, v -> c.musicScale = v),
+                Row.slider("Размер плашки цели", "Размер карточки со здоровьем",
+                        0.4, 1.6, 2, () -> c.targetScale, v -> c.targetScale = v),
+                Row.slider("Размер строк слов", "Для режима «Строки внизу»",
+                        0.4, 1.6, 2, () -> c.lyricsBoxScale, v -> c.lyricsBoxScale = v),
+                Row.label("Быстрый доступ",
+                        "Клавиша Right Ctrl в игре. Её можно поменять в настройках управления.")
+        ));
+
+        // 9 - Тема
         pages.add(List.of(
                 Row.swatch("Цвет темы", "Цвет меню, частиц и вспышки",
                         () -> c.accent, v -> c.accent = v),
@@ -258,7 +355,7 @@ public class VisualsScreen extends Screen {
         List<Row> out = new ArrayList<>();
         VisualsConfig c = VisualsConfig.I;
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (t == 4) {
+        if (t == 6) {
             if (c.friends.isEmpty()) {
                 out.add(Row.label("Друзей пока нет", "Впиши ник выше или наведись на игрока и нажми G"));
             }
@@ -272,7 +369,7 @@ public class VisualsScreen extends Screen {
                 out.add(Row.item(u, "Играет с HamsterVisuals", true,
                         Social.isFriend(u) ? null : "+ друг", () -> Social.addFriend(u), null, null));
             }
-        } else if (t == 5) {
+        } else if (t == 7) {
             if (mc.world == null) {
                 out.add(Row.label("Метки видны только в мире", "Открой это меню, когда зайдёшь в мир"));
             } else {
@@ -431,11 +528,13 @@ public class VisualsScreen extends Screen {
                 Ui.rrect(ctx, tx, ty, SIDE - 16, TAB_H - 2, 4, 0x22FFFFFF);
             }
             String label = TABS[i];
-            if (i == 4 && !VisualsConfig.I.friends.isEmpty()) label += " (" + VisualsConfig.I.friends.size() + ")";
+            if (i == 6 && !VisualsConfig.I.friends.isEmpty()) label += " (" + VisualsConfig.I.friends.size() + ")";
             ctx.drawText(this.textRenderer, label, tx + 12, ty + 6,
                     sel ? Ui.argb(0xFF, acc) : 0xFFB8BCC8, false);
         }
-        Ui.scaled(ctx, this.textRenderer, "Right Shift - закрыть", x0 + 12, y0 + ph - 16, 0xFF6C7280, 0.75f, false);
+        if (ph >= 290) {
+            Ui.scaled(ctx, this.textRenderer, "Right Shift - закрыть", x0 + 12, y0 + ph - 16, 0xFF6C7280, 0.75f, false);
+        }
 
         // заголовок
         String q = query();
