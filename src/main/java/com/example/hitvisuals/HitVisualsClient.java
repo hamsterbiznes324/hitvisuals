@@ -28,6 +28,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HitVisualsClient implements ClientModInitializer {
     private static boolean fullbrightApplied = false;
+    private static boolean hintShown = false;
 
     private static LivingEntity lastHitEntity = null;
     private static long lastHitEntityTime = 0L;
@@ -111,7 +112,12 @@ public class HitVisualsClient implements ClientModInitializer {
         if (p == null || client.world == null) {
             fullbrightApplied = false;
             lastHitEntity = null;
+            hintShown = false;
             return;
+        }
+        if (!hintShown) {
+            hintShown = true;
+            p.sendMessage(Text.literal("HamsterVisuals: Right Shift - меню, Right Ctrl - двигать панели"), true);
         }
 
         while (markKey.wasPressed()) {
@@ -188,15 +194,42 @@ public class HitVisualsClient implements ClientModInitializer {
         }
 
         Box box = target.getBoundingBox();
-        for (int i = 0; i < c.particleCount; i++) {
+        double cx = (box.minX + box.maxX) / 2.0;
+        double cy = (box.minY + box.maxY) / 2.0;
+        double cz = (box.minZ + box.maxZ) / 2.0;
+        double h = box.maxY - box.minY;
+        int n = c.particleCount;
+        for (int i = 0; i < n; i++) {
             ParticleEffect effect = ModParticles.pick(c.hitParticle);
-            double x = box.minX + world.random.nextDouble() * (box.maxX - box.minX);
-            double y = box.minY + world.random.nextDouble() * (box.maxY - box.minY);
-            double z = box.minZ + world.random.nextDouble() * (box.maxZ - box.minZ);
-            double vx = (world.random.nextDouble() - 0.5) * 0.3;
-            double vy = world.random.nextDouble() * 0.25;
-            double vz = (world.random.nextDouble() - 0.5) * 0.3;
-            world.addParticle(effect, x, y, z, vx, vy, vz);
+            double t = i / (double) n;
+            double ang = t * Math.PI * 2;
+            switch (c.hitPattern) {
+                case 1 -> // кольцо вокруг цели
+                        world.addParticle(effect, cx, cy, cz, Math.cos(ang) * 0.2, 0.02, Math.sin(ang) * 0.2);
+                case 2 -> { // спираль вверх
+                    double a2 = i * 0.8;
+                    world.addParticle(effect, cx, box.minY + h * t, cz,
+                            -Math.sin(a2) * 0.1 + Math.cos(a2) * 0.05, 0.05, Math.cos(a2) * 0.1 + Math.sin(a2) * 0.05);
+                }
+                case 3 -> // фонтан сверху
+                        world.addParticle(effect, cx, box.maxY, cz,
+                                (world.random.nextDouble() - 0.5) * 0.12, 0.22 + world.random.nextDouble() * 0.15,
+                                (world.random.nextDouble() - 0.5) * 0.12);
+                case 4 -> { // сфера
+                    double ux = world.random.nextDouble() * 2 - 1;
+                    double uy = world.random.nextDouble() * 2 - 1;
+                    double uz = world.random.nextDouble() * 2 - 1;
+                    double len = Math.max(0.001, Math.sqrt(ux * ux + uy * uy + uz * uz));
+                    world.addParticle(effect, cx, cy, cz, ux / len * 0.22, uy / len * 0.22, uz / len * 0.22);
+                }
+                default -> { // разлёт по всему телу
+                    double x = box.minX + world.random.nextDouble() * (box.maxX - box.minX);
+                    double y = box.minY + world.random.nextDouble() * (box.maxY - box.minY);
+                    double z = box.minZ + world.random.nextDouble() * (box.maxZ - box.minZ);
+                    world.addParticle(effect, x, y, z, (world.random.nextDouble() - 0.5) * 0.3,
+                            world.random.nextDouble() * 0.25, (world.random.nextDouble() - 0.5) * 0.3);
+                }
+            }
         }
 
         if (c.sound && mc.player != null) {

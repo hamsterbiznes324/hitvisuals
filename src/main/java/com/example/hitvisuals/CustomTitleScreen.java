@@ -221,7 +221,7 @@ public class CustomTitleScreen extends Screen {
         ctx.drawText(tr, hint, this.width / 2 - hw / 2, this.height - 18, 0xFF6C7280, false);
 
         // подвал: версия и ник
-        Ui.scaled(ctx, tr, "HamsterVisuals 1.2.0  |  Minecraft 1.21.4", 8, this.height - 12, 0xFF5A606E, 0.8f, false);
+        Ui.scaled(ctx, tr, "HamsterVisuals 1.3.0  |  Minecraft 1.21.4", 8, this.height - 12, 0xFF5A606E, 0.8f, false);
         if (this.client != null && this.client.getSession() != null) {
             String name = this.client.getSession().getUsername();
             float nw = tr.getWidth(name) * 0.9f;

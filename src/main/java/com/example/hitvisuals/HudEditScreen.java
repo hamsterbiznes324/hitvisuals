@@ -8,6 +8,7 @@ import net.minecraft.text.Text;
 public class HudEditScreen extends Screen {
     private final Screen parent;
     private int dragId = -1;
+    private int selected = -1;
     private float offX;
     private float offY;
 
@@ -27,7 +28,8 @@ public class HudEditScreen extends Screen {
         int[] ids = ids();
         for (int k = ids.length - 1; k >= 0; k--) {
             float[] r = HudLayout.rect(ids[k], this.width, this.height);
-            if (mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
+            float pad = 6f;
+            if (mx >= r[0] - pad && mx < r[0] + r[2] + pad && my >= r[1] - pad && my < r[1] + r[3] + pad) {
                 return ids[k];
             }
         }
@@ -75,7 +77,7 @@ public class HudEditScreen extends Screen {
                     x1, y1 - 9, Ui.argb(0xFF, acc), 0.8f, true);
         }
 
-        String help = "Тяни панели мышью, колесо - размер. Esc - готово";
+        String help = "Зажми панель левой кнопкой и тяни. Колесо - размер, стрелки - точная подстройка. Esc - готово";
         int hw = this.textRenderer.getWidth(help);
         ctx.drawText(this.textRenderer, help, this.width / 2 - hw / 2, this.height / 2 - 4, 0xFFFFFFFF, true);
 
@@ -102,6 +104,7 @@ public class HudEditScreen extends Screen {
         if (id >= 0 && button == 0) {
             float[] r = HudLayout.rect(id, this.width, this.height);
             dragId = id;
+            selected = id;
             offX = (float) mouseX - r[0];
             offY = (float) mouseY - r[1];
             return true;
@@ -136,6 +139,24 @@ public class HudEditScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (selected >= 0) {
+            float[] r = HudLayout.rect(selected, this.width, this.height);
+            float step = 1f;
+            float nx = r[0];
+            float ny = r[1];
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT) nx -= step;
+            else if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT) nx += step;
+            else if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_UP) ny -= step;
+            else if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN) ny += step;
+            else return super.keyPressed(keyCode, scanCode, modifiers);
+            HudLayout.setFromRect(selected, nx, ny, this.width, this.height);
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override

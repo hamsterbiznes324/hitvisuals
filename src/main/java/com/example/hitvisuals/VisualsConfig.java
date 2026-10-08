@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public final class VisualsConfig {
     public double soundVolume = 0.8;
     public double soundPitch = 1.0;
     public boolean killEffect = true;
+    public int hitPattern = 0;
 
     // мир
     public int sky = 0;
@@ -67,6 +70,14 @@ public final class VisualsConfig {
     public double handRotX = 0;
     public double handRotY = 0;
     public double handRotZ = 0;
+    public boolean leftSeparate = false;
+    public double leftScale = 0.6;
+    public double leftX = 0;
+    public double leftY = 0;
+    public double leftZ = 0;
+    public double leftRotX = 0;
+    public double leftRotY = 0;
+    public double leftRotZ = 0;
     public int swingStyle = 0;
     public int swordSkin = 0;
     public int maceSkin = 0;
@@ -83,6 +94,8 @@ public final class VisualsConfig {
     public boolean crossDynamic = true;
     public boolean hitMarker = true;
     public boolean hideVanillaCross = true;
+    public int crossPixelSize = 2;
+    public String crossPixels = "";
 
     // музыка
     public boolean musicHud = false;
@@ -138,6 +151,28 @@ public final class VisualsConfig {
         }
     }
 
+    static String toJson(VisualsConfig c) {
+        return GSON.toJson(c);
+    }
+
+    static VisualsConfig fromJson(String json) {
+        return GSON.fromJson(json, VisualsConfig.class);
+    }
+
+    /** Копирует все настройки, кроме друзей и меток. Объект остаётся тем же, поэтому меню видит изменения. */
+    public void copyFrom(VisualsConfig o) {
+        for (Field f : VisualsConfig.class.getDeclaredFields()) {
+            int m = f.getModifiers();
+            if (Modifier.isStatic(m) || Modifier.isFinal(m)) continue;
+            String n = f.getName();
+            if (n.equals("friends") || n.equals("marks")) continue;
+            try {
+                f.set(this, f.get(o));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private static int ci(int v, int lo, int hi) {
         return Math.max(lo, Math.min(hi, v));
     }
@@ -146,7 +181,7 @@ public final class VisualsConfig {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    private void clamp() {
+    void clamp() {
         accent &= 0xFFFFFF;
         skyColor &= 0xFFFFFF;
         markColor &= 0xFFFFFF;
@@ -170,9 +205,19 @@ public final class VisualsConfig {
         handRotY = cd(handRotY, -90, 90);
         handRotZ = cd(handRotZ, -90, 90);
         swingStyle = ci(swingStyle, 0, 2);
+        hitPattern = ci(hitPattern, 0, 4);
+        leftScale = cd(leftScale, 0.3, 1.5);
+        leftX = cd(leftX, -0.6, 0.6);
+        leftY = cd(leftY, -0.6, 0.6);
+        leftZ = cd(leftZ, -0.8, 0.8);
+        leftRotX = cd(leftRotX, -90, 90);
+        leftRotY = cd(leftRotY, -90, 90);
+        leftRotZ = cd(leftRotZ, -90, 90);
+        crossPixelSize = ci(crossPixelSize, 1, 4);
+        if (crossPixels == null) crossPixels = "";
         swordSkin = ci(swordSkin, 0, SkinPacks.NAMES.length - 1);
         maceSkin = ci(maceSkin, 0, SkinPacks.NAMES.length - 1);
-        crossStyle = ci(crossStyle, 0, 4);
+        crossStyle = ci(crossStyle, 0, 5);
         crossSize = ci(crossSize, 1, 20);
         crossThickness = ci(crossThickness, 1, 6);
         crossGap = ci(crossGap, 0, 14);

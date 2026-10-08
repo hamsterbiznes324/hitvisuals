@@ -13,22 +13,36 @@ public final class ModParticles {
     public static final SimpleParticleType STAR = FabricParticleTypes.simple();
     public static final SimpleParticleType MOON = FabricParticleTypes.simple();
     public static final SimpleParticleType SKULL = FabricParticleTypes.simple();
+    public static final SimpleParticleType HEART = FabricParticleTypes.simple();
+    public static final SimpleParticleType SNOW = FabricParticleTypes.simple();
+    public static final SimpleParticleType BOLT = FabricParticleTypes.simple();
+    public static final SimpleParticleType FLOWER = FabricParticleTypes.simple();
+    public static final SimpleParticleType CROWN = FabricParticleTypes.simple();
+    public static final SimpleParticleType GEM = FabricParticleTypes.simple();
+    public static final SimpleParticleType PAW = FabricParticleTypes.simple();
 
-    public static final String[] NAMES = {"Звёзды", "Луны", "Черепа", "Смесь", "Огонь", "Сердечки"};
+    private static final SimpleParticleType[] CUSTOM = {STAR, MOON, SKULL, HEART, SNOW, BOLT, FLOWER, CROWN, GEM, PAW};
+    private static final String[] IDS = {"star", "moon", "skull", "heart", "snow", "bolt", "flower", "crown", "gem", "paw"};
+
+    /** Порядок первых шести совпадает со старыми версиями, чтобы сохранённые настройки не сломались. */
+    public static final String[] NAMES = {
+            "Звёзды", "Луны", "Черепа", "Смесь", "Огонь", "Сердечки (игра)",
+            "Сердца", "Снежинки", "Молнии", "Цветы", "Короны", "Кристаллы", "Лапки"
+    };
 
     /** Регистрирует типы частиц (вызывается из основной точки входа). */
     public static void registerTypes() {
-        Registry.register(Registries.PARTICLE_TYPE, Identifier.of("hitvisuals", "star"), STAR);
-        Registry.register(Registries.PARTICLE_TYPE, Identifier.of("hitvisuals", "moon"), MOON);
-        Registry.register(Registries.PARTICLE_TYPE, Identifier.of("hitvisuals", "skull"), SKULL);
+        for (int i = 0; i < CUSTOM.length; i++) {
+            Registry.register(Registries.PARTICLE_TYPE, Identifier.of("hitvisuals", IDS[i]), CUSTOM[i]);
+        }
     }
 
     /** Привязывает к типам частиц их отрисовку (клиент). */
     public static void registerFactories() {
         ParticleFactoryRegistry r = ParticleFactoryRegistry.getInstance();
-        r.register(STAR, provider -> new IconParticle.Factory(provider));
-        r.register(MOON, provider -> new IconParticle.Factory(provider));
-        r.register(SKULL, provider -> new IconParticle.Factory(provider));
+        for (SimpleParticleType t : CUSTOM) {
+            r.register(t, provider -> new IconParticle.Factory(provider));
+        }
     }
 
     /** Возвращает частицу по номеру из списка NAMES. */
@@ -40,14 +54,26 @@ public final class ModParticles {
                 return MOON;
             case 2:
                 return SKULL;
-            case 3: {
-                int r = (int) (Math.random() * 3);
-                return r == 0 ? STAR : (r == 1 ? MOON : SKULL);
-            }
+            case 3:
+                return CUSTOM[(int) (Math.random() * CUSTOM.length)];
             case 4:
                 return ParticleTypes.FLAME;
-            default:
+            case 5:
                 return ParticleTypes.HEART;
+            case 6:
+                return HEART;
+            case 7:
+                return SNOW;
+            case 8:
+                return BOLT;
+            case 9:
+                return FLOWER;
+            case 10:
+                return CROWN;
+            case 11:
+                return GEM;
+            default:
+                return PAW;
         }
     }
 

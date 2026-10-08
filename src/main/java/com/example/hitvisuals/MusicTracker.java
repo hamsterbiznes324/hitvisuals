@@ -268,6 +268,39 @@ public final class MusicTracker {
 
     // ------------------------------------------------------------ тексты песен
 
+    private static final Pattern BRACKETS = Pattern.compile("\\(.*?\\)|\\[.*?\\]|\\{.*?\\}");
+    private static final Pattern NOISE = Pattern.compile(
+            "(?i)\\b(speed\\s*up|sped\\s*up|slowed|reverb|nightcore|remix|remastered|official|lyrics?|audio|video|version)\\b");
+    private static final Pattern FEAT = Pattern.compile("(?i)\\b(feat\\.?|ft\\.?|prod\\.?)\\b.*$");
+    private static final Pattern SPLIT = Pattern.compile("\\s*(,|&|;|/|\\bx\\b|\\bfeat\\.?|\\bft\\.?)\\s*", Pattern.CASE_INSENSITIVE);
+
+    /** Candidate - один найденный вариант текста. */
+    private static final class Cand {
+        String track = "";
+        String artist = "";
+        double duration = 0;
+        String synced = "";
+        String plain = "";
+    }
+
+    private static String clean(String s) {
+        String r = s == null ? "" : s;
+        r = BRACKETS.matcher(r).replaceAll(" ");
+        r = FEAT.matcher(r).replaceAll(" ");
+        r = NOISE.matcher(r).replaceAll(" ");
+        return r.replaceAll("\\s+", " ").trim();
+    }
+
+    private static List<String> artistsOf(String artist) {
+        List<String> out = new ArrayList<>();
+        if (artist == null) return out;
+        for (String part : SPLIT.split(artist)) {
+            String t = part.trim();
+            if (!t.isEmpty() && out.size() < 4) out.add(t);
+        }
+        return out;
+    }
+
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
@@ -276,7 +309,7 @@ public final class MusicTracker {
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(8))
-                    .header("User-Agent", "HamsterVisuals/1.1")
+                    .header("User-Agent", "HamsterVisuals/1.3")
                     .GET().build();
             HttpResponse<String> r = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (r.statusCode() != 200) return null;
@@ -286,41 +319,145 @@ public final class MusicTracker {
         }
     }
 
+    private static void collect(List<Cand> out, JsonElement el) {
+        if (el == null) return;
+        if (el.isJsonObject()) {
+            addCand(out, el.getAsJsonObject());
+        } else if (el.isJsonArray()) {
+            for (JsonElement item : el.getAsJsonArray()) {
+                if (item.isJsonObject()) addCand(out, item.getAsJsonObject());
+            }
+        }
+    }
+
+    private static void addCand(List<Cand> out, JsonObject o) {
+        Cand c = new Cand();
+        c.track = str(o, "trackName");
+        c.artist = str(o, "artistName");
+        c.duration = num(o, "duration");
+        c.synced = str(o, "syncedLyrics");
+        c.plain = str(o, "plainLyrics");
+        if (!c.synced.isEmpty() || !c.plain.isEmpty()) out.add(c);
+    }
+
+    private static boolean hasSynced(List<Cand> list) {
+        for (Cand c : list) {
+            if (!c.synced.isEmpty()) return true;
+        }
+        return false;
+    }
+
+    private static int score(Cand c, String cleanTitle, List<String> artists, double ourDur) {
+        int score = 0;
+        String ctl = cleanTitle.toLowerCase(Locale.ROOT);
+        String tl = c.track.toLowerCase(Locale.ROOT);
+        if (tl.equals(ctl)) score += 4;
+        else if (!ctl.isEmpty() && (tl.contains(ctl) || ctl.contains(tl))) score += 2;
+        String al = c.artist.toLowerCase(Locale.ROOT);
+        for (String ar : artists) {
+            String arl = ar.toLowerCase(Locale.ROOT);
+            if (!al.isEmpty() && (al.contains(arl) || arl.contains(al))) {
+                score += 3;
+                break;
+            }
+        }
+        if (c.duration > 0 && ourDur > 0) {
+            double r = ourDur / c.duration;
+            if (Math.abs(r - 1) < 0.03) score += 2;
+            else if (r > 0.6 && r < 1.6) score += 1;
+        }
+        if (!c.synced.isEmpty()) score += 5;
+        return score;
+    }
+
     private static void fetchLyrics(String t, String a, String key) {
-        String synced = "";
+        Lyrics result = null;
         try {
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(6)).build();
-            JsonElement el = getJson(client, "https://lrclib.net/api/get?track_name=" + enc(t) + "&artist_name=" + enc(a));
-            if (el != null && el.isJsonObject()) {
-                synced = str(el.getAsJsonObject(), "syncedLyrics");
+            String ct = clean(t);
+            if (ct.isEmpty()) ct = t;
+            List<String> artists = artistsOf(a);
+            double ourDur = dur;
+            List<Cand> found = new ArrayList<>();
+
+            // 1. точное совпадение
+            collect(found, getJson(client, "https://lrclib.net/api/get?track_name=" + enc(t) + "&artist_name=" + enc(a)));
+            // 2. очищенное название и каждый исполнитель отдельно
+            for (String ar : artists) {
+                if (hasSynced(found)) break;
+                collect(found, getJson(client, "https://lrclib.net/api/get?track_name=" + enc(ct) + "&artist_name=" + enc(ar)));
             }
-            if (synced.isEmpty()) {
-                JsonElement sr = getJson(client, "https://lrclib.net/api/search?q=" + enc((a + " " + t).trim()));
-                if (sr != null && sr.isJsonArray()) {
-                    JsonArray arr = sr.getAsJsonArray();
-                    for (JsonElement item : arr) {
-                        if (!item.isJsonObject()) continue;
-                        String s = str(item.getAsJsonObject(), "syncedLyrics");
-                        if (!s.isEmpty()) {
-                            synced = s;
-                            break;
-                        }
-                    }
+            // 3. поиск по названию и исполнителю
+            for (String ar : artists) {
+                if (hasSynced(found)) break;
+                collect(found, getJson(client, "https://lrclib.net/api/search?track_name=" + enc(ct) + "&artist_name=" + enc(ar)));
+            }
+            // 4. общий поиск
+            if (!hasSynced(found)) {
+                String first = artists.isEmpty() ? "" : artists.get(0);
+                collect(found, getJson(client, "https://lrclib.net/api/search?q=" + enc((ct + " " + first).trim())));
+            }
+            if (!hasSynced(found)) {
+                collect(found, getJson(client, "https://lrclib.net/api/search?q=" + enc(ct)));
+            }
+
+            Cand best = null;
+            int bestScore = -1;
+            for (Cand c : found) {
+                int sc = score(c, ct, artists, ourDur);
+                if (sc > bestScore) {
+                    bestScore = sc;
+                    best = c;
                 }
+            }
+            if (best != null) {
+                result = build(best, ourDur);
             }
         } catch (Exception ignored) {
         }
         if (!key.equals(lyricsKey)) return;
-        Lyrics parsed = parse(synced);
-        lyrics = parsed;
-        lyricsState = parsed == null ? LY_NONE : LY_OK;
+        lyrics = result;
+        lyricsState = result == null ? LY_NONE : LY_OK;
+    }
+
+    /** Делает из найденного варианта готовый текст со временем. */
+    private static Lyrics build(Cand c, double ourDur) {
+        if (!c.synced.isEmpty()) {
+            Lyrics ly = parse(c.synced);
+            if (ly != null) {
+                // версия speed up или slowed: подгоняем время под нашу длину трека
+                if (c.duration > 0 && ourDur > 0) {
+                    double ratio = ourDur / c.duration;
+                    if (Math.abs(ratio - 1) > 0.03 && ratio > 0.5 && ratio < 2.0) {
+                        double[] ts = ly.times();
+                        for (int i = 0; i < ts.length; i++) ts[i] *= ratio;
+                    }
+                }
+                return ly;
+            }
+        }
+        // времени нет, раскладываем строки равномерно по длине трека (примерно)
+        List<String> lines = new ArrayList<>();
+        for (String raw : c.plain.split("\\n")) {
+            String t = raw.trim();
+            if (!t.isEmpty()) lines.add(t);
+        }
+        if (lines.isEmpty()) return null;
+        double total = ourDur > 0 ? ourDur : (c.duration > 0 ? c.duration : 180);
+        double start = total * 0.06;
+        double span = total * 0.86;
+        double[] ts = new double[lines.size()];
+        for (int i = 0; i < ts.length; i++) {
+            ts[i] = start + span * i / lines.size();
+        }
+        return new Lyrics(ts, lines.toArray(new String[0]));
     }
 
     private static Lyrics parse(String lrc) {
         if (lrc == null || lrc.isEmpty()) return null;
         List<Double> times = new ArrayList<>();
         List<String> lines = new ArrayList<>();
-        for (String raw : lrc.split("\n")) {
+        for (String raw : lrc.split("\\n")) {
             Matcher m = LRC.matcher(raw.trim());
             if (!m.matches()) continue;
             try {

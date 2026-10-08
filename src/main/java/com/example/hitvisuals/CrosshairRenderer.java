@@ -7,7 +7,7 @@ import java.awt.Color;
 
 /** Свой прицел и хит-маркер при попадании. */
 public final class CrosshairRenderer {
-    public static final String[] STYLES = {"Крест", "Точка", "Круг", "Крест и точка", "Квадрат"};
+    public static final String[] STYLES = {"Крест", "Точка", "Круг", "Крест и точка", "Квадрат", "Свой рисунок"};
     public static final String[] COLOR_MODES = {"Цвет темы", "Белый", "Радужный", "Свой цвет"};
 
     private static int color(VisualsConfig c) {
@@ -75,6 +75,7 @@ public final class CrosshairRenderer {
                 bars(ctx, cx, cy, gap, len, th, half, col, ol);
                 dot(ctx, cx, cy, th, col, ol);
             }
+            case 5 -> drawPixels(ctx, cx, cy, VisualsConfig.I.crossPixels, c.crossPixelSize, ol);
             case 4 -> {
                 int r = len + gap / 2;
                 rect(ctx, cx - r, cy - r, cx + r + 1, cy - r + th, col, ol);
@@ -83,6 +84,29 @@ public final class CrosshairRenderer {
                 rect(ctx, cx + r + 1 - th, cy - r, cx + r + 1, cy + r + 1, col, ol);
             }
             default -> bars(ctx, cx, cy, gap, len, th, half, col, ol);
+        }
+    }
+
+    /** Рисует прицел, нарисованный игроком. Центр сетки ставится в точку (cx, cy). */
+    public static void drawPixels(DrawContext ctx, int cx, int cy, String pixels, int ps, boolean outline) {
+        String px = CrosshairPixels.normalize(pixels);
+        int n = CrosshairPixels.N;
+        int ox = cx - (n * ps) / 2;
+        int oy = cy - (n * ps) / 2;
+        if (outline) {
+            for (int y = 0; y < n; y++) {
+                for (int x = 0; x < n; x++) {
+                    if (CrosshairPixels.rgb(px.charAt(y * n + x)) < 0) continue;
+                    ctx.fill(ox + x * ps - 1, oy + y * ps - 1, ox + (x + 1) * ps + 1, oy + (y + 1) * ps + 1, 0xB0000000);
+                }
+            }
+        }
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                int rgb = CrosshairPixels.rgb(px.charAt(y * n + x));
+                if (rgb < 0) continue;
+                ctx.fill(ox + x * ps, oy + y * ps, ox + (x + 1) * ps, oy + (y + 1) * ps, Ui.argb(0xFF, rgb));
+            }
         }
     }
 

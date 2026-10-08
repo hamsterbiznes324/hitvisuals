@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Положение, размер и поворот руки от первого лица, стиль взмаха. */
+/** Положение, размер и поворот рук от первого лица (у каждой руки свои настройки), стиль взмаха. */
 @Mixin(HeldItemRenderer.class)
 public class HeldItemRendererMixin {
     @ModifyVariable(method = "renderFirstPersonItem", at = @At("HEAD"), argsOnly = true, ordinal = 2, require = 0)
@@ -37,18 +37,42 @@ public class HeldItemRendererMixin {
                                  CallbackInfo ci) {
         VisualsConfig c = VisualsConfig.I;
         if (!c.smallHands) return;
-        float s = (float) c.handScale;
+
         Arm arm = hand == Hand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
         float side = arm == Arm.RIGHT ? 1f : -1f;
 
-        // сдвиг руки
-        matrices.translate((float) c.handX * side, (float) c.handY, (float) c.handZ);
+        float s;
+        float dx;
+        float dy;
+        float dz;
+        float rx;
+        float ry;
+        float rz;
+        if (arm == Arm.LEFT && c.leftSeparate) {
+            // у левой руки свои настройки
+            s = (float) c.leftScale;
+            dx = (float) c.leftX;
+            dy = (float) c.leftY;
+            dz = (float) c.leftZ;
+            rx = (float) c.leftRotX;
+            ry = (float) c.leftRotY;
+            rz = (float) c.leftRotZ;
+        } else {
+            // зеркально повторяем настройки правой руки
+            s = (float) c.handScale;
+            dx = (float) c.handX * side;
+            dy = (float) c.handY;
+            dz = (float) c.handZ;
+            rx = (float) c.handRotX;
+            ry = (float) c.handRotY * side;
+            rz = (float) c.handRotZ * side;
+        }
 
-        // поворот и размер вокруг того места, где рука обычно находится
+        matrices.translate(dx, dy, dz);
         matrices.translate(0.64f * side, -0.6f, -0.72f);
-        if (c.handRotX != 0) matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees((float) c.handRotX));
-        if (c.handRotY != 0) matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees((float) c.handRotY * side));
-        if (c.handRotZ != 0) matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((float) c.handRotZ * side));
+        if (rx != 0) matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(rx));
+        if (ry != 0) matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(ry));
+        if (rz != 0) matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rz));
         matrices.scale(s, s, s);
         matrices.translate(-0.64f * side, 0.6f, 0.72f);
     }
