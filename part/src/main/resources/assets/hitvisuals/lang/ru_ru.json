@@ -1,0 +1,8 @@
+{
+  "key.hitvisuals.menu": "Открыть меню HamsterVisuals",
+  "key.hitvisuals.mark": "Поставить / убрать метку",
+  "key.hitvisuals.friend": "Добавить / убрать друга (смотри на игрока)",
+  "key.hitvisuals.zoom": "Зум (держать)",
+  "key.hitvisuals.hudedit": "Двигать маленькие панели",
+  "category.hitvisuals": "HamsterVisuals"
+}

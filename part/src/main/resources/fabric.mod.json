@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "hitvisuals",
+  "version": "${version}",
+  "name": "HamsterVisuals",
+  "description": "Меню, главный экран, свои частицы, небо, трейл, плеер с текстами песен, друзья и метки.",
+  "authors": ["Hamster_Biznes"],
+  "icon": "assets/hitvisuals/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": ["com.example.hitvisuals.HitVisualsMod"],
+    "client": ["com.example.hitvisuals.HitVisualsClient"]
+  },
+  "mixins": [
+    { "config": "hitvisuals.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

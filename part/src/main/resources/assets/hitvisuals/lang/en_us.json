@@ -1,0 +1,8 @@
+{
+  "key.hitvisuals.menu": "Open HamsterVisuals menu",
+  "key.hitvisuals.mark": "Place / remove mark",
+  "key.hitvisuals.friend": "Add / remove friend (look at player)",
+  "key.hitvisuals.zoom": "Zoom (hold)",
+  "key.hitvisuals.hudedit": "Move small panels",
+  "category.hitvisuals": "HamsterVisuals"
+}
